@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Codunot — AI That Lives Inside Discord</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=Cabinet+Grotesk:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --orange: #FF6B00;
+    --orange-dim: #FF6B0022;
+    --orange-glow: #FF6B0044;
+    --gold: #FFB800;
+    --teal: #00D4AA;
+    --blue: #5865F2;
+    --red: #ED4245;
+    --bg: #080B0F;
+    --bg2: #0D1117;
+    --bg3: #111820;
+    --surface: #141B24;
+    --surface2: #1A2333;
+    --border: #1E2D3D;
+    --border2: #243347;
+    --text: #E8EDF4;
+    --text-dim: #7A8A9A;
+    --text-muted: #3D5166;
+    --font-display: 'Syne', sans-serif;
+    --font-body: 'Cabinet Grotesk', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.6;
+    overflow-x: hidden;
+    cursor: none;
+  }
+  #cursor {
+    position: fixed; width: 12px; height: 12px;
+    background: var(--orange); border-radius: 50%;
+    pointer-events: none; z-index: 9999;
+    transform: translate(-50%,-50%);
+    transition: width .2s, height .2s, background .2s;
+    mix-blend-mode: screen;
+  }
+  #cursor-ring {
+    position: fixed; width: 36px; height: 36px;
+    border: 1.5px solid var(--orange); border-radius: 50%;
+    pointer-events: none; z-index: 9998;
+    transform: translate(-50%,-50%);
+    transition: width .3s, height .3s, border-color .3s;
+    opacity: .5;
+  }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--orange); border-radius: 2px; }
+  body::before {
+    content:''; position:fixed; inset:0;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events:none; z-index:1000; opacity:.4;
+  }
+  nav {
+    position:fixed; top:0; left:0; right:0; z-index:100;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 48px;
+    background:rgba(8,11,15,.85); backdrop-filter:blur(20px);
+    border-bottom:1px solid var(--border);
+  }
+  .nav-logo {
+    font-family:var(--font-display); font-size:20px; font-weight:800;
+    color:var(--orange); letter-spacing:-.5px; text-decoration:none;
+  }
+  .nav-links { display:flex; gap:28px; align-items:center; }
+  .nav-links a {
+    color:var(--text-dim); text-decoration:none; font-size:14px; font-weight:500;
+    transition:color .2s; position:relative;
+  }
+  .nav-links a::after {
+    content:''; position:absolute; bottom:-4px; left:0; right:0; height:1px;
+    background:var(--orange); transform:scaleX(0); transform-origin:left; transition:transform .3s;
+  }
+  .nav-links a:hover { color:var(--text); }
+  .nav-links a:hover::after { transform:scaleX(1); }
+  .nav-cta {
+    background:var(--orange) !important; color:#000 !important;
+    padding:8px 20px; border-radius:6px; font-weight:700 !important;
+    transition:background .2s, transform .2s !important;
+  }
+  .nav-cta:hover { background:var(--gold) !important; transform:translateY(-1px); }
+  .nav-cta::after { display:none !important; }
+
+  
+  .hero {
+    min-height:100vh; display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    text-align:center; padding:120px 48px 80px; position:relative; overflow:hidden;
+  }
+  .hero-bg {
+    position:absolute; inset:0;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(255,107,0,.15) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 40% at 20% 80%, rgba(88,101,242,.08) 0%, transparent 50%),
+      radial-gradient(ellipse 40% 40% at 80% 80%, rgba(0,212,170,.06) 0%, transparent 50%);
+  }
+  .hero-grid {
+    position:absolute; inset:0;
+    background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);
+    background-size:60px 60px; opacity:.3;
+    mask-image:radial-gradient(ellipse 70% 70% at 50% 50%,black 0%,transparent 100%);
+  }
+  .hero-badge {
+    display:inline-flex; align-items:center; gap:8px;
+    background:var(--surface); border:1px solid var(--border2);
+    border-radius:100px; padding:6px 16px;
+    font-size:13px; font-weight:500; color:var(--text-dim);
+    margin-bottom:32px; animation:fadeUp .6s ease both;
+  }
+  .hero-badge span { color:var(--orange); }
+  .dot { width:6px; height:6px; background:var(--teal); border-radius:50%; animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
+  h1 {
+    font-family:var(--font-display); font-size:clamp(48px,8vw,96px); font-weight:800;
+    line-height:.95; letter-spacing:-3px; margin-bottom:24px; animation:fadeUp .6s .1s ease both;
+  }
+  h1 .l1 { display:block; color:var(--text); }
+  h1 .l2 { display:block; color:var(--orange); }
+  h1 .l3 { display:block; color:var(--text-dim); font-size:.65em; }
+  .hero-desc {
+    max-width:560px; color:var(--text-dim); font-size:18px;
+    margin-bottom:40px; animation:fadeUp .6s .2s ease both;
+  }
+  .hero-desc strong { color:var(--text); }
+  .hero-actions {
+    display:flex; gap:16px; flex-wrap:wrap; justify-content:center;
+    animation:fadeUp .6s .3s ease both; margin-bottom:64px;
+  }
+  .btn-p {
+    background:var(--orange); color:#000; padding:14px 32px;
+    border-radius:8px; font-size:15px; font-weight:700; text-decoration:none;
+    transition:background .2s, transform .2s, box-shadow .2s;
+  }
+  .btn-p:hover { background:var(--gold); transform:translateY(-2px); box-shadow:0 8px 32px var(--orange-glow); }
+  .btn-s {
+    background:var(--surface); color:var(--text); padding:14px 32px;
+    border-radius:8px; font-size:15px; font-weight:600; text-decoration:none;
+    border:1px solid var(--border2); transition:background .2s, transform .2s, border-color .2s;
+  }
+  .btn-s:hover { background:var(--surface2); border-color:var(--orange); transform:translateY(-2px); }
+  .stats-bar {
+    display:flex; background:var(--surface); border:1px solid var(--border);
+    border-radius:12px; overflow:hidden; animation:fadeUp .6s .4s ease both;
+  }
+  .stat {
+    padding:20px 40px; text-align:center; border-right:1px solid var(--border);
+    position:relative; overflow:hidden; transition:background .3s;
+  }
+  .stat:last-child { border-right:none; }
+  .stat:hover { background:var(--surface2); }
+  .stat::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:2px;
+    background:var(--orange); transform:scaleX(0); transition:transform .3s;
+  }
+  .stat:hover::before { transform:scaleX(1); }
+  .stat-num { font-family:var(--font-display); font-size:28px; font-weight:800; color:var(--text); display:block; }
+  .stat-label { font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:none} }
+
+  
+  section { padding:100px 48px; max-width:1200px; margin:0 auto; }
+  .stag {
+    font-family:var(--font-mono); font-size:12px; font-weight:500;
+    color:var(--orange); text-transform:uppercase; letter-spacing:3px;
+    margin-bottom:12px; display:flex; align-items:center; gap:12px;
+  }
+  .stag::before { content:''; width:24px; height:1px; background:var(--orange); }
+  h2 {
+    font-family:var(--font-display); font-size:clamp(32px,5vw,52px); font-weight:800;
+    line-height:1.05; letter-spacing:-1.5px; margin-bottom:16px;
+  }
+  .sdesc { color:var(--text-dim); font-size:17px; max-width:560px; margin-bottom:56px; }
+  .divider { height:1px; background:linear-gradient(90deg,transparent,var(--border),transparent); margin:0 48px; }
+
+  
+  .cards-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px; }
+  .card {
+    background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:28px;
+    transition:border-color .3s, transform .3s, box-shadow .3s;
+    position:relative; overflow:hidden; cursor:default;
+  }
+  .card::before {
+    content:''; position:absolute; inset:0;
+    background:radial-gradient(circle at var(--mx,50%) var(--my,50%),var(--ca,var(--orange-dim)) 0%,transparent 60%);
+    opacity:0; transition:opacity .4s; pointer-events:none;
+  }
+  .card:hover { border-color:var(--border2); transform:translateY(-4px); box-shadow:0 16px 48px rgba(0,0,0,.3); }
+  .card:hover::before { opacity:1; }
+  .card-icon { font-size:28px; margin-bottom:16px; display:block; }
+  .card h3 { font-family:var(--font-display); font-size:18px; font-weight:700; margin-bottom:8px; letter-spacing:-.3px; }
+  .card p { color:var(--text-dim); font-size:14px; line-height:1.6; }
+  .badge {
+    display:inline-block; font-size:11px; font-weight:600; padding:3px 10px;
+    border-radius:100px; margin-top:16px; text-transform:uppercase; letter-spacing:.5px;
+  }
+  .bf { background:rgba(0,212,170,.12); color:var(--teal); border:1px solid rgba(0,212,170,.2); }
+  .bv { background:rgba(88,101,242,.12); color:#8b97ff; border:1px solid rgba(88,101,242,.2); }
+  .bp { background:rgba(255,184,0,.12); color:var(--gold); border:1px solid rgba(255,184,0,.2); }
+  .bn { background:rgba(255,107,0,.12); color:var(--orange); border:1px solid rgba(255,107,0,.2); }
+
+  
+  .mod-hero {
+    background:linear-gradient(135deg,var(--surface) 0%,rgba(237,66,69,.06) 100%);
+    border:1px solid rgba(237,66,69,.2); border-radius:20px; padding:60px;
+    margin-bottom:40px; position:relative; overflow:hidden;
+  }
+  .mod-hero::before {
+    content:'🛡️'; position:absolute; right:60px; top:50%; transform:translateY(-50%);
+    font-size:120px; opacity:.06; filter:blur(2px);
+  }
+  .mod-tag {
+    font-family:var(--font-mono); font-size:11px; color:var(--red);
+    text-transform:uppercase; letter-spacing:3px; margin-bottom:12px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .live { width:6px; height:6px; background:var(--red); border-radius:50%; animation:pulse 1.5s infinite; }
+  .mod-hero h2 { margin-bottom:12px; }
+  .mod-hero > p { color:var(--text-dim); font-size:17px; max-width:500px; margin-bottom:32px; }
+  code { font-family:var(--font-mono); font-size:13px; color:var(--orange); background:var(--surface2); padding:2px 8px; border-radius:4px; }
+  .mod-steps { display:flex; gap:10px; flex-wrap:wrap; }
+  .mod-step {
+    display:flex; align-items:center; gap:10px;
+    background:rgba(237,66,69,.08); border:1px solid rgba(237,66,69,.15);
+    border-radius:8px; padding:10px 16px; font-size:14px; font-weight:500;
+  }
+  .step-n {
+    width:22px; height:22px; background:var(--red); color:#fff; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:700; font-family:var(--font-mono); flex-shrink:0;
+  }
+  .automod-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:40px; }
+  .am-item {
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    padding:20px; text-align:center; transition:border-color .3s, transform .3s; cursor:default;
+  }
+  .am-item:hover { border-color:rgba(237,66,69,.3); transform:translateY(-3px); }
+  .am-item .ai { font-size:28px; margin-bottom:10px; display:block; }
+  .am-item strong { display:block; font-size:14px; font-weight:700; margin-bottom:4px; }
+  .am-item span { font-size:12px; color:var(--text-dim); }
+  .mod-cmds-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px; margin-bottom:40px; }
+  .cc {
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    padding:20px; transition:border-color .2s, transform .2s; cursor:default;
+  }
+  .cc:hover { border-color:rgba(237,66,69,.3); transform:translateY(-2px); }
+  .cc .cn { font-family:var(--font-mono); font-size:14px; font-weight:500; color:var(--orange); margin-bottom:6px; }
+  .cc p { font-size:13px; color:var(--text-dim); }
+  .perms-box { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:40px; }
+  .perms-head {
+    display:grid; grid-template-columns:1fr 2fr 100px; padding:14px 24px;
+    background:var(--surface2); border-bottom:1px solid var(--border);
+    font-family:var(--font-mono); font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;
+  }
+  .perm-row {
+    display:grid; grid-template-columns:1fr 2fr 100px;
+    padding:14px 24px; border-bottom:1px solid var(--border);
+    font-size:14px; transition:background .2s; align-items:center;
+  }
+  .perm-row:last-child { border-bottom:none; }
+  .perm-row:hover { background:var(--surface2); }
+  .perm-row strong { color:var(--text); }
+  .perm-row span { color:var(--text-dim); font-size:13px; }
+  .ptag { font-size:11px; font-weight:600; padding:3px 10px; border-radius:4px; font-family:var(--font-mono); background:rgba(237,66,69,.1); color:#ff6b6b; border:1px solid rgba(237,66,69,.2); }
+
+  
+  .modes-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; }
+  .mode-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:24px; transition:border-color .3s, transform .3s; cursor:default;
+    position:relative; overflow:hidden;
+  }
+  .mode-card::after {
+    content:''; position:absolute; bottom:0; left:0; right:0; height:2px;
+    background:var(--mc,var(--orange)); transform:scaleX(0); transform-origin:left; transition:transform .4s;
+  }
+  .mode-card:hover { transform:translateY(-4px); }
+  .mode-card:hover::after { transform:scaleX(1); }
+  .me { font-size:32px; margin-bottom:12px; display:block; }
+  .mode-card h3 { font-family:var(--font-display); font-size:17px; font-weight:700; margin-bottom:6px; }
+  .mode-card p { font-size:13px; color:var(--text-dim); margin-bottom:14px; }
+  .pills { display:flex; gap:6px; flex-wrap:wrap; }
+  .pill {
+    font-family:var(--font-mono); font-size:11px; background:var(--bg3);
+    color:var(--orange); border:1px solid var(--border); padding:3px 10px;
+    border-radius:4px; transition:background .2s;
+  }
+  .pill:hover { background:var(--surface2); }
+
+  
+  .tiers-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+  .tier {
+    background:var(--surface); border:1px solid var(--border); border-radius:16px;
+    padding:36px 28px; position:relative; overflow:hidden;
+    transition:transform .3s, box-shadow .3s; cursor:default;
+  }
+  .tier:hover { transform:translateY(-6px); }
+  .tier.feat { border-color:var(--gold); box-shadow:0 0 40px rgba(255,184,0,.1); }
+  .tier.feat::before {
+    content:'RECOMMENDED'; position:absolute; top:0; right:0;
+    background:var(--gold); color:#000; font-size:10px; font-weight:800;
+    padding:6px 14px; border-bottom-left-radius:8px; letter-spacing:1px; font-family:var(--font-mono);
+  }
+  .tier-icon { font-size:32px; margin-bottom:16px; display:block; }
+  .tier-name { font-family:var(--font-display); font-size:22px; font-weight:800; margin-bottom:4px; }
+  .tier-price { font-family:var(--font-mono); font-size:13px; color:var(--text-dim); margin-bottom:24px; }
+  .tier-feats { list-style:none; }
+  .tier-feats li { padding:8px 0; border-bottom:1px solid var(--border); font-size:14px; display:flex; align-items:center; gap:8px; color:var(--text-dim); }
+  .tier-feats li:last-child { border-bottom:none; }
+  .tier-feats li::before { content:'→'; color:var(--orange); font-family:var(--font-mono); }
+  .tier-feats li strong { color:var(--text); }
+
+  
+  .ct-title {
+    font-family:var(--font-display); font-size:18px; font-weight:700;
+    margin-bottom:12px; display:flex; align-items:center; gap:10px;
+  }
+  .ct-title::before { content:''; width:3px; height:20px; background:var(--orange); border-radius:2px; }
+  .cmd-list { display:flex; flex-direction:column; gap:4px; margin-bottom:32px; }
+  .ci {
+    display:flex; align-items:flex-start; gap:16px; padding:12px 16px;
+    background:var(--surface); border:1px solid var(--border); border-radius:8px;
+    transition:border-color .2s, background .2s; cursor:default;
+  }
+  .ci:hover { border-color:var(--border2); background:var(--surface2); }
+  .ci code { min-width:240px; white-space:nowrap; background:none; padding:0; }
+  .ci span { font-size:14px; color:var(--text-dim); }
+
+  
+  .faq-list { display:flex; flex-direction:column; gap:8px; }
+  .faq-item { background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow:hidden; transition:border-color .2s; }
+  .faq-item:hover { border-color:var(--border2); }
+  .faq-q {
+    padding:20px 24px; font-weight:600; font-size:15px; cursor:pointer;
+    display:flex; justify-content:space-between; align-items:center;
+    user-select:none; transition:color .2s; list-style:none;
+  }
+  .faq-q:hover { color:var(--orange); }
+  .faq-q::after { content:'+'; font-size:20px; font-weight:300; color:var(--text-muted); transition:transform .3s, color .2s; flex-shrink:0; }
+  details[open] .faq-q::after { transform:rotate(45deg); color:var(--orange); }
+  .faq-a { padding:0 24px 20px; color:var(--text-dim); font-size:14px; line-height:1.7; border-top:1px solid var(--border); padding-top:16px; }
+
+  
+  .links-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .lc {
+    display:flex; flex-direction:column; background:var(--surface);
+    border:1px solid var(--border); border-radius:12px; padding:28px;
+    text-decoration:none; transition:border-color .3s, transform .3s, box-shadow .3s;
+    position:relative; overflow:hidden;
+  }
+  .lc::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:3px;
+    background:var(--lc,var(--orange)); transform:scaleX(0); transition:transform .3s;
+  }
+  .lc:hover { transform:translateY(-4px); box-shadow:0 16px 40px rgba(0,0,0,.3); }
+  .lc:hover::before { transform:scaleX(1); }
+  .lc .li { font-size:28px; margin-bottom:12px; }
+  .lc .lt { font-family:var(--font-display); font-size:17px; font-weight:700; color:var(--text); margin-bottom:6px; }
+  .lc .ld { font-size:13px; color:var(--text-dim); }
+  .lc .lu { font-family:var(--font-mono); font-size:11px; color:var(--text-muted); margin-top:12px; word-break:break-all; }
+
+  
+  .reveal { opacity:0; transform:translateY(30px); transition:opacity .6s ease, transform .6s ease; }
+  .reveal.visible { opacity:1; transform:none; }
+  .d1 { transition-delay:.1s; } .d2 { transition-delay:.2s; } .d3 { transition-delay:.3s; }
+
+  footer {
+    border-top:1px solid var(--border); padding:48px;
+    text-align:center; color:var(--text-muted); font-size:14px;
+  }
+  footer a { color:var(--orange); text-decoration:none; }
+  footer a:hover { color:var(--gold); }
+
+  @media(max-width:900px){
+    nav{padding:16px 24px;}
+    .nav-links{display:none;}
+    section{padding:60px 24px;}
+    .hero{padding:100px 24px 60px;}
+    .stats-bar{flex-direction:column;}
+    .stat{border-right:none;border-bottom:1px solid var(--border);}
+    .tiers-grid,.links-grid{grid-template-columns:1fr;}
+    .automod-strip{grid-template-columns:repeat(2,1fr);}
+    .perms-head,.perm-row{grid-template-columns:1fr 1fr;}
+    .perms-head>*:last-child,.perm-row>*:last-child{display:none;}
+    .mod-hero{padding:32px;}
+    .mod-hero::before{display:none;}
+  }
+</style>
+</head>
+<body>
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<nav>
+  <a href="#" class="nav-logo">Codunot</a>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#moderation">Moderation</a>
+    <a href="#modes">Modes</a>
+    <a href="#tiers">Tiers</a>
+    <a href="#commands">Commands</a>
+    <a href="#faq">FAQ</a>
+    <a href="https://discord.com/oauth2/authorize?client_id=1435987186502733878&permissions=277025643520&integration_type=0&scope=applications.commands+bot" class="nav-cta">Add to Server</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+  <div class="hero-badge"><div class="dot"></div><span>New</span> Moderation System just launched</div>
+  <h1>
+    <span class="l1">AI That Lives</span>
+    <span class="l2">Inside Discord</span>
+    <span class="l3">Built by a 13-year-old developer</span>
+  </h1>
+  <p class="hero-desc">Lightning-fast AI responses <strong>(~0.1–0.2s)</strong>, full moderation tools, music, image generation, chess, and more — natively inside Discord. No app switching.</p>
+  <div class="hero-actions">
+    <a href="https://discord.com/oauth2/authorize?client_id=1435987186502733878&permissions=277025643520&integration_type=0&scope=applications.commands+bot" class="btn-p">➕ Add to Server</a>
+    <a href="https://discord.com/oauth2/authorize?client_id=1435987186502733878&integration_type=1&scope=applications.commands" class="btn-s">💬 Add to DMs</a>
+    <a href="https://discord.gg/GVuFk5gxtW" class="btn-s">🌍 Official Server</a>
+  </div>
+  <div class="stats-bar">
+    <div class="stat"><span class="stat-num">0.1s</span><span class="stat-label">Avg Response</span></div>
+    <div class="stat"><span class="stat-num">45+</span><span class="stat-label">TTS Languages</span></div>
+    <div class="stat"><span class="stat-num">8</span><span class="stat-label">Audio Filters</span></div>
+    <div class="stat"><span class="stat-num">Free</span><span class="stat-label">To Start</span></div>
+  </div>
+</div>
+
+<div class="divider"></div>
+<section id="features">
+  <div class="stag reveal">Features</div>
+  <h2 class="reveal">Everything in one bot.</h2>
+  <p class="sdesc reveal">Chat, music, moderation, image gen — all native to Discord.</p>
+  <div class="cards-grid">
+    <div class="card reveal d1" style="--ca:rgba(255,107,0,.12)"><span class="card-icon">🧠</span><h3>Fast AI Chat</h3><p>Lightning-fast responses in servers and DMs. Multiple personality modes. Context-aware memory.</p><span class="badge bf">Always Free</span></div>
+    <div class="card reveal d2" style="--ca:rgba(237,66,69,.1)"><span class="card-icon">🛡️</span><h3>Full Moderation</h3><p>AutoMod, ban/kick/mute, warn system, anti-raid, anti-spam, link filter, case logging — 6-step wizard.</p><span class="badge bn">New!</span></div>
+    <div class="card reveal d3" style="--ca:rgba(88,101,242,.12)"><span class="card-icon">🎵</span><h3>Music Player</h3><p>YouTube & SoundCloud support with 8 audio filters: bass boost, nightcore, 8D, lo-fi and more.</p><span class="badge bv">Vote Required</span></div>
+    <div class="card reveal d1" style="--ca:rgba(0,212,170,.1)"><span class="card-icon">🎨</span><h3>Image Generation</h3><p>AI image generation, editing, and merging from text prompts. Smart prompt booster built-in.</p><span class="badge bv">Vote Required</span></div>
+    <div class="card reveal d2" style="--ca:rgba(255,184,0,.1)"><span class="card-icon">🔊</span><h3>Text-to-Speech</h3><p>45+ languages, 100+ neural voices. High-quality Microsoft Edge TTS engine.</p><span class="badge bv">Vote Required</span></div>
+    <div class="card reveal d3" style="--ca:rgba(255,107,0,.1)"><span class="card-icon">♟️</span><h3>Chess Mode</h3><p>Play chess inside Discord. Hints, analysis, and coaching from the AI mid-game.</p><span class="badge bf">Always Free</span></div>
+    <div class="card reveal d1" style="--ca:rgba(88,101,242,.1)"><span class="card-icon">🧪</span><h3>Code Tester</h3><p>Run Python in a secure sandbox. Auto-detects errors and uses AI to fix them automatically.</p><span class="badge bf">Always Free</span></div>
+    <div class="card reveal d2" style="--ca:rgba(0,212,170,.1)"><span class="card-icon">🌐</span><h3>URL Browser</h3><p>Extract and summarize content from any public webpage without leaving Discord.</p><span class="badge bf">Always Free</span></div>
+    <div class="card reveal d3" style="--ca:rgba(255,107,0,.1)"><span class="card-icon">📝</span><h3>Video Transcription</h3><p>Transcribe YouTube, Twitch VODs, X, and Kick videos up to 30 minutes.</p><span class="badge bv">Vote Required</span></div>
+  </div>
+</section>
+
+<div class="divider"></div>
+<section id="moderation" style="max-width:1200px">
+  <div class="stag reveal" style="color:var(--red)"><span style="background:var(--red);width:24px;height:1px;display:inline-block"></span>Moderation System — New</div>
+  <div class="mod-hero reveal">
+    <div class="mod-tag"><div class="live"></div> Live on all servers</div>
+    <h2>Full Server Protection<br>in 2 Minutes.</h2>
+    <p>Codunot is no longer just a chatbot. Run <code>/setup-moderation</code> to activate a complete moderation system guided by a 6-step wizard.</p>
+    <div class="mod-steps">
+      <div class="mod-step"><div class="step-n">1</div>AutoMod & Bad Words</div>
+      <div class="mod-step"><div class="step-n">2</div>Log Channels</div>
+      <div class="mod-step"><div class="step-n">3</div>Mod Roles</div>
+      <div class="mod-step"><div class="step-n">4</div>Link Policy</div>
+      <div class="mod-step"><div class="step-n">5</div>AntiSpam & AntiRaid</div>
+      <div class="mod-step"><div class="step-n">6</div>Review & Confirm</div>
+    </div>
+  </div>
+
+  <div class="stag reveal" style="margin-bottom:16px">AutoMod</div>
+  <h3 style="font-family:var(--font-display);font-size:26px;font-weight:700;margin-bottom:8px;letter-spacing:-.5px" class="reveal">24/7 Automatic Protection</h3>
+  <p style="color:var(--text-dim);margin-bottom:24px;font-size:15px" class="reveal">AutoMod watches every message with no moderator needed online.</p>
+  <div class="automod-strip reveal">
+    <div class="am-item"><span class="ai">🤬</span><strong>Bad Word Filter</strong><span>Deletes messages with blocked words instantly</span></div>
+    <div class="am-item"><span class="ai">🔗</span><strong>Link Filter</strong><span>Block links server-wide with per-channel exceptions</span></div>
+    <div class="am-item"><span class="ai">🚫</span><strong>AntiSpam</strong><span>Auto-timeout spammers with configurable thresholds</span></div>
+    <div class="am-item"><span class="ai">🚨</span><strong>AntiRaid</strong><span>Lock all channels when mass joins are detected</span></div>
+  </div>
+
+  <div class="stag reveal" style="margin-bottom:16px">Commands</div>
+  <h3 style="font-family:var(--font-display);font-size:26px;font-weight:700;margin-bottom:8px;letter-spacing:-.5px" class="reveal">Moderation Commands</h3>
+  <p style="color:var(--text-dim);margin-bottom:24px;font-size:15px" class="reveal">All commands require <code>/setup-moderation</code> to be completed first.</p>
+  <div class="mod-cmds-grid reveal">
+    <div class="cc"><div class="cn">/warn</div><p>Warn a member. Auto-timeout at 3 warnings.</p></div>
+    <div class="cc"><div class="cn">/warns</div><p>View all warnings for a member.</p></div>
+    <div class="cc"><div class="cn">/clearwarns</div><p>Clear all warnings for a member.</p></div>
+    <div class="cc"><div class="cn">/ban</div><p>Ban a member with optional message deletion.</p></div>
+    <div class="cc"><div class="cn">/unban</div><p>Unban a user by Discord ID.</p></div>
+    <div class="cc"><div class="cn">/modkick</div><p>Kick a member from the server.</p></div>
+    <div class="cc"><div class="cn">/mute</div><p>Timeout a member for 1 minute up to 28 days.</p></div>
+    <div class="cc"><div class="cn">/unmute</div><p>Remove a timeout from a member.</p></div>
+    <div class="cc"><div class="cn">/clear</div><p>Bulk-delete up to 100 messages.</p></div>
+    <div class="cc"><div class="cn">/slowmode</div><p>Set or disable slowmode.</p></div>
+    <div class="cc"><div class="cn">/lock</div><p>Prevent @everyone from sending messages.</p></div>
+    <div class="cc"><div class="cn">/unlock</div><p>Restore @everyone messaging.</p></div>
+    <div class="cc"><div class="cn">/userinfo</div><p>Detailed member info — warns, cases, roles.</p></div>
+    <div class="cc"><div class="cn">/case</div><p>Look up any mod action by case number.</p></div>
+    <div class="cc"><div class="cn">/automod</div><p>Toggle AutoMod on or off after setup.</p></div>
+  </div>
+
+  <div style="background:linear-gradient(135deg,var(--surface) 0%,rgba(255,184,0,.05) 100%);border:1px solid rgba(255,184,0,.2);border-radius:12px;padding:28px;margin-bottom:40px" class="reveal">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <span style="font-size:20px">🌟</span>
+      <span style="font-family:var(--font-display);font-size:18px;font-weight:700">Premium / Gold Only</span>
+      <span class="badge bp" style="margin-top:0">Premium</span>
+    </div>
+    <div class="mod-cmds-grid" style="margin-bottom:0">
+      <div class="cc" style="border-color:rgba(255,184,0,.15)"><div class="cn">/tempban</div><p>Temporarily ban — auto-unbanned after duration (30m, 6h, 7d).</p></div>
+      <div class="cc" style="border-color:rgba(255,184,0,.15)"><div class="cn">/massban</div><p>Ban up to 10 users at once via ID list.</p></div>
+      <div class="cc" style="border-color:rgba(255,184,0,.15)"><div class="cn">/modstats</div><p>Server mod statistics — action counts, top moderators.</p></div>
+      <div class="cc" style="border-color:rgba(255,184,0,.15)"><div class="cn">/note add/view/clear</div><p>Private mod notes on members — mods-only.</p></div>
+    </div>
+  </div>
+
+  <div class="stag reveal" style="margin-bottom:16px">Setup</div>
+  <h3 style="font-family:var(--font-display);font-size:26px;font-weight:700;margin-bottom:8px;letter-spacing:-.5px" class="reveal">Bot Permissions Required</h3>
+  <p style="color:var(--text-dim);margin-bottom:20px;font-size:15px" class="reveal">Grant these in <strong>Server Settings → Roles → Codunot</strong>. If any are missing, Codunot will tell you when you run <code>/setup-moderation</code>.</p>
+  <div class="perms-box reveal">
+    <div class="perms-head"><div>Permission</div><div>Used By</div><div>Status</div></div>
+    <div class="perm-row"><strong>Ban Members</strong><span>/ban, /unban, /tempban, /massban, auto-unban</span><span class="ptag">Required</span></div>
+    <div class="perm-row"><strong>Kick Members</strong><span>/modkick</span><span class="ptag">Required</span></div>
+    <div class="perm-row"><strong>Moderate Members</strong><span>/mute, /unmute, AutoMod spam timeout, auto-timeout at 3 warns</span><span class="ptag">Required</span></div>
+    <div class="perm-row"><strong>Manage Messages</strong><span>/clear, AutoMod bad word delete, link delete, spam purge</span><span class="ptag">Required</span></div>
+    <div class="perm-row"><strong>Manage Channels</strong><span>/lock, /unlock, /slowmode, AutoMod raid lockdown</span><span class="ptag">Required</span></div>
+  </div>
+</section>
+
+<div class="divider"></div>
+<section id="modes">
+  <div class="stag reveal">Personalities</div>
+  <h2 class="reveal">Switch modes anytime.</h2>
+  <p class="sdesc reveal">Each mode completely changes how Codunot responds — tone, format, energy, everything.</p>
+  <div class="modes-grid">
+    <div class="mode-card reveal d1" style="--mc:#FFB800"><span class="me">😎</span><h3>Fun Mode</h3><p>Jokes, memes, Gen Z vibes. Matches your energy and keeps things light.</p><div class="pills"><span class="pill">!funmode</span><span class="pill">/funmode</span></div></div>
+    <div class="mode-card reveal d2" style="--mc:#ED4245"><span class="me">🔥</span><h3>Roast Mode</h3><p>Playful savage burns. 1–2 sharp sentences of maximum heat.</p><div class="pills"><span class="pill">!roastmode</span><span class="pill">/roastmode</span></div></div>
+    <div class="mode-card reveal d3" style="--mc:#5865F2"><span class="me">🤓</span><h3>Serious Mode</h3><p>Professional, structured, fact-based. Great for research and coding.</p><div class="pills"><span class="pill">!seriousmode</span><span class="pill">/seriousmode</span></div></div>
+    <div class="mode-card reveal d1" style="--mc:#00D4AA"><span class="me">💬</span><h3>Rizz Coach</h3><p>Online and IRL social coaching. Paste a convo and get line-by-line advice.</p><div class="pills"><span class="pill">!teachmerizz online</span><span class="pill">!teachmerizz irl</span></div></div>
+    <div class="mode-card reveal d2" style="--mc:#FF6B00"><span class="me">♟️</span><h3>Chess Mode</h3><p>Play chess against Codunot. Hints, analysis, and coaching mid-game.</p><div class="pills"><span class="pill">!chessmode</span><span class="pill">/chessmode</span></div></div>
+  </div>
+</section>
+
+<div class="divider"></div>
+<section id="tiers">
+  <div class="stag reveal">Pricing</div>
+  <h2 class="reveal">Pick your tier.</h2>
+  <p class="sdesc reveal">All commands available on all tiers. Limits only control how much you can use them.</p>
+  <div class="tiers-grid">
+    <div class="tier reveal"><span class="tier-icon">🟢</span><div class="tier-name">Basic</div><div class="tier-price">Free forever</div><ul class="tier-feats"><li><strong>50</strong> messages / day</li><li><strong>7</strong> attachments / day</li><li><strong>30</strong> attachments / 2 months</li><li>All commands available</li><li>HD music streaming</li></ul></div>
+    <div class="tier feat reveal d1"><span class="tier-icon">🔵</span><div class="tier-name">Premium</div><div class="tier-price">$10 / 2 months — DM @aarav_2022</div><ul class="tier-feats"><li><strong>Unlimited</strong> messages / day</li><li><strong>25</strong> attachments / day</li><li><strong>75</strong> attachments / 2 months</li><li>320kbps music quality</li><li>/tempban /massban /modstats /note</li></ul></div>
+    <div class="tier reveal d2"><span class="tier-icon">🟡</span><div class="tier-name">Gold 👑</div><div class="tier-price">$15 / 2 months — DM @aarav_2022</div><ul class="tier-feats"><li><strong>Unlimited</strong> messages</li><li><strong>Unlimited</strong> attachments / day</li><li><strong>150</strong> attachments / 2 months</li><li>320kbps music quality</li><li>All premium mod commands</li></ul></div>
+  </div>
+</section>
+
+<div class="divider"></div>
+<section id="commands">
+  <div class="stag reveal">Reference</div>
+  <h2 class="reveal">Full command list.</h2>
+  <div class="reveal">
+    <div class="ct-title">Moderation</div>
+    <div class="cmd-list">
+      <div class="ci"><code>/setup-moderation</code><span>Launch the 6-step moderation setup wizard</span></div>
+      <div class="ci"><code>/automod enable/disable</code><span>Toggle AutoMod on or off</span></div>
+      <div class="ci"><code>/warn @user [reason]</code><span>Warn a member — auto-timeout at 3 warnings</span></div>
+      <div class="ci"><code>/warns @user</code><span>View all warnings for a member</span></div>
+      <div class="ci"><code>/clearwarns @user</code><span>Clear all warnings for a member</span></div>
+      <div class="ci"><code>/ban @user [reason] [delete_days]</code><span>Ban a member</span></div>
+      <div class="ci"><code>/unban [user_id] [reason]</code><span>Unban by Discord ID</span></div>
+      <div class="ci"><code>/modkick @user [reason]</code><span>Kick a member</span></div>
+      <div class="ci"><code>/mute @user [minutes] [reason]</code><span>Timeout a member</span></div>
+      <div class="ci"><code>/unmute @user [reason]</code><span>Remove a timeout</span></div>
+      <div class="ci"><code>/clear [amount]</code><span>Bulk-delete up to 100 messages</span></div>
+      <div class="ci"><code>/slowmode [seconds]</code><span>Set or disable slowmode</span></div>
+      <div class="ci"><code>/lock [channel] [reason]</code><span>Prevent @everyone messaging</span></div>
+      <div class="ci"><code>/unlock [channel] [reason]</code><span>Restore @everyone messaging</span></div>
+      <div class="ci"><code>/userinfo [@user]</code><span>Detailed member info, warns, and cases</span></div>
+      <div class="ci"><code>/case [number]</code><span>Look up a mod action by case number</span></div>
+      <div class="ci"><code>/tempban @user [duration] [reason]</code><span>🌟 Temp-ban with auto-unban (Premium)</span></div>
+      <div class="ci"><code>/massban</code><span>🌟 Ban up to 10 users via ID list (Premium)</span></div>
+      <div class="ci"><code>/modstats</code><span>🌟 Server moderation statistics (Premium)</span></div>
+      <div class="ci"><code>/note add/view/clear @user</code><span>🌟 Private mod notes (Premium)</span></div>
+    </div>
+    <div class="ct-title">AI Chat & Modes</div>
+    <div class="cmd-list">
+      <div class="ci"><code>/funmode</code><span>Activate Fun Mode</span></div>
+      <div class="ci"><code>/seriousmode</code><span>Activate Serious Mode</span></div>
+      <div class="ci"><code>/roastmode</code><span>Activate Roast Mode</span></div>
+      <div class="ci"><code>/teachmerizz online/irl</code><span>Activate Rizz Coach Mode</span></div>
+      <div class="ci"><code>/chessmode</code><span>Activate Chess Mode</span></div>
+      <div class="ci"><code>!codunot_help</code><span>Show built-in help message</span></div>
+    </div>
+    <div class="ct-title">Generation (Vote Required)</div>
+    <div class="cmd-list">
+      <div class="ci"><code>/generate_image [prompt]</code><span>Generate an AI image</span></div>
+      <div class="ci"><code>/generate_video [prompt]</code><span>Generate an AI video</span></div>
+      <div class="ci"><code>/generate_tts [text] [language] [voice]</code><span>Generate text-to-speech audio (45+ languages)</span></div>
+      <div class="ci"><code>/transcribe [video_url]</code><span>Transcribe YouTube/Twitch/X/Kick video (max 30 min)</span></div>
+    </div>
+    <div class="ct-title">Music (Vote Required)</div>
+    <div class="cmd-list">
+      <div class="ci"><code>/play [song] [filter]</code><span>Play music in voice channel with audio filter</span></div>
+      <div class="ci"><code>/queue</code><span>View current music queue</span></div>
+    </div>
+    <div class="ct-title">Free Action Commands</div>
+    <div class="cmd-list">
+      <div class="ci"><code>/hug @user</code><span>Hug someone with a GIF</span></div>
+      <div class="ci"><code>/kiss @user</code><span>Kiss someone with a GIF</span></div>
+      <div class="ci"><code>/kick @user</code><span>Playfully kick someone</span></div>
+      <div class="ci"><code>/slap @user</code><span>Slap someone dramatically</span></div>
+      <div class="ci"><code>/wish_goodmorning @user</code><span>Wish someone a good morning</span></div>
+      <div class="ci"><code>/bet heads/tails</code><span>Coin flip bet</span></div>
+      <div class="ci"><code>/meme</code><span>Get a random meme</span></div>
+      <div class="ci"><code>/test_code</code><span>Test and validate Python code</span></div>
+      <div class="ci"><code>/browse [url]</code><span>Extract content from any webpage</span></div>
+      <div class="ci"><code>/guessage @user</code><span>Estimate a user's age from writing style (Vote)</span></div>
+    </div>
+    <div class="ct-title">Server Config (Owner Only)</div>
+    <div class="cmd-list">
+      <div class="ci"><code>/configure server</code><span>Allow Codunot to chat in all channels</span></div>
+      <div class="ci"><code>/configure channels</code><span>Restrict Codunot to specific channels</span></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+<section id="faq">
+  <div class="stag reveal">FAQ</div>
+  <h2 class="reveal">Common questions.</h2>
+  <div class="faq-list">
+    <details class="faq-item reveal"><summary class="faq-q">How do I set up moderation?</summary><div class="faq-a">Run <code>/setup-moderation</code> in your server. You need to be the server owner or have Ban/Kick/Timeout permissions. A 6-step wizard guides you through AutoMod, log channels, mod roles, link policy, AntiSpam, and AntiRaid. Takes about 2 minutes.</div></details>
+    <details class="faq-item reveal"><summary class="faq-q">What permissions does Codunot need for moderation?</summary><div class="faq-a">Exactly 5 permissions: <strong>Ban Members</strong>, <strong>Kick Members</strong>, <strong>Moderate Members</strong>, <strong>Manage Messages</strong>, and <strong>Manage Channels</strong>. Go to Server Settings → Roles → Codunot to enable them. The setup wizard will also tell you if anything is missing.</div></details>
+    <details class="faq-item reveal"><summary class="faq-q">I already had Codunot — do I need to do anything?</summary><div class="faq-a">Just grant the 5 permissions (Server Settings → Roles → Codunot), then run <code>/setup-moderation</code> once to configure moderation. All existing chatbot features work exactly the same as before.</div></details>
+    <details class="faq-item reveal"><summary class="faq-q">How do I vote to unlock features?</summary><div class="faq-a">Visit <a href="https://top.gg/bot/1435987186502733878/vote">top.gg/bot/1435987186502733878/vote</a> and click the vote button. Unlocks all vote-locked features for 12 hours. Completely free, takes 10 seconds.</div></details>
+    <details class="faq-item reveal"><summary class="faq-q">What's the difference between vote-locked and premium features?</summary><div class="faq-a">Voting (free, every 12 hours) unlocks image generation, music, file reading, TTS, and transcription. Premium/Gold ($10–15 per 2 months) removes daily limits and unlocks advanced mod commands like /tempban, /massban, /modstats, and /note.</div></details>
+    <details class="faq-item reveal"><summary class="faq-q">Can I use Codunot in DMs?</summary><div class="faq-a">Yes! In DMs you don't need to mention the bot — just type normally. Moderation commands only work in servers.</div></details>
+    <details class="faq-item reveal"><summary class="faq-q">How does code testing work?</summary><div class="faq-a">Use <code>/test_code</code> to open a modal, paste your Python code, and Codunot runs it in a secure sandbox. Real execution results, not AI guesses. If there's an error, the AI automatically fixes the code and re-tests it.</div></details>
+    <details class="faq-item reveal"><summary class="faq-q">How do I upgrade to Premium or Gold?</summary><div class="faq-a">DM <strong>@aarav_2022</strong> on Discord or join the official server at <a href="https://discord.gg/GVuFk5gxtW">discord.gg/GVuFk5gxtW</a>.</div></details>
+  </div>
+</section>
+
+<div class="divider"></div>
+<section>
+  <div class="stag reveal">Links</div>
+  <h2 class="reveal">Get started now.</h2>
+  <div class="links-grid">
+    <a href="https://discord.com/oauth2/authorize?client_id=1435987186502733878&permissions=277025643520&integration_type=0&scope=applications.commands+bot" class="lc reveal" style="--lc:var(--orange)"><div class="li">➕</div><div class="lt">Add to Server</div><div class="ld">Invite Codunot to your Discord server with full permissions</div><div class="lu">discord.com/oauth2/authorize?client_id=1435987186502733878...</div></a>
+    <a href="https://discord.com/oauth2/authorize?client_id=1435987186502733878&integration_type=1&scope=applications.commands" class="lc reveal d1" style="--lc:var(--blue)"><div class="li">💬</div><div class="lt">Add to DMs</div><div class="ld">Use Codunot directly in your DMs and apps</div><div class="lu">discord.com/oauth2/authorize?...integration_type=1</div></a>
+    <a href="https://discord.gg/GVuFk5gxtW" class="lc reveal d2" style="--lc:var(--teal)"><div class="li">🌍</div><div class="lt">Official Server</div><div class="ld">Get support, report bugs, suggest features</div><div class="lu">discord.gg/GVuFk5gxtW</div></a>
+    <a href="https://top.gg/bot/1435987186502733878/vote" class="lc reveal" style="--lc:var(--gold)"><div class="li">🗳️</div><div class="lt">Vote on Top.gg</div><div class="ld">Vote every 12 hours to unlock image gen, music, TTS for free</div><div class="lu">top.gg/bot/1435987186502733878/vote</div></a>
+    <a href="https://top.gg/bot/1435987186502733878" class="lc reveal d1" style="--lc:#FF4F60"><div class="li">⭐</div><div class="lt">Rate on Top.gg</div><div class="ld">Leave a review and help others discover Codunot</div><div class="lu">top.gg/bot/1435987186502733878</div></a>
+    <a href="https://discord.gg/GVuFk5gxtW" class="lc reveal d2" style="--lc:var(--orange)"><div class="li">💎</div><div class="lt">Upgrade to Premium</div><div class="ld">Support a 13-year-old dev and unlock higher limits</div><div class="lu">DM @aarav_2022 on Discord</div></a>
+  </div>
+</section>
+
+<footer>
+  <p style="font-family:var(--font-display);font-size:20px;font-weight:800;color:var(--orange);margin-bottom:8px">Codunot</p>
+  <p style="margin-bottom:16px">Built with ❤️ by a 13-year-old developer — <a href="https://discord.gg/GVuFk5gxtW">@aarav_2022</a></p>
+  <p style="font-size:12px;color:var(--text-muted)">
+    <a href="https://discord.com/oauth2/authorize?client_id=1435987186502733878&permissions=277025643520&integration_type=0&scope=applications.commands+bot">Add to Server</a> ·
+    <a href="https://discord.gg/GVuFk5gxtW">Support Server</a> ·
+    <a href="https://top.gg/bot/1435987186502733878/vote">Vote on Top.gg</a>
+  </p>
+</footer>
+
+<script>
+  const cursor = document.getElementById('cursor');
+  const ring = document.getElementById('cursor-ring');
+  let mx=0,my=0,rx=0,ry=0;
+  document.addEventListener('mousemove',e=>{
+    mx=e.clientX; my=e.clientY;
+    cursor.style.left=mx+'px'; cursor.style.top=my+'px';
+  });
+  (function animRing(){
+    rx+=(mx-rx)*.12; ry+=(my-ry)*.12;
+    ring.style.left=rx+'px'; ring.style.top=ry+'px';
+    requestAnimationFrame(animRing);
+  })();
+
+  
+  document.querySelectorAll('a,button,.card,.cc,.am-item,.mode-card,.tier,.lc,.faq-item').forEach(el=>{
+    el.addEventListener('mouseenter',()=>{
+      cursor.style.width='20px'; cursor.style.height='20px'; cursor.style.background='var(--gold)';
+      ring.style.width='52px'; ring.style.height='52px'; ring.style.borderColor='var(--gold)';
+    });
+    el.addEventListener('mouseleave',()=>{
+      cursor.style.width='12px'; cursor.style.height='12px'; cursor.style.background='var(--orange)';
+      ring.style.width='36px'; ring.style.height='36px'; ring.style.borderColor='var(--orange)';
+    });
+  });
+
+  
+  document.querySelectorAll('.card').forEach(c=>{
+    c.addEventListener('mousemove',e=>{
+      const r=c.getBoundingClientRect();
+      c.style.setProperty('--mx',((e.clientX-r.left)/r.width*100).toFixed(1)+'%');
+      c.style.setProperty('--my',((e.clientY-r.top)/r.height*100).toFixed(1)+'%');
+    });
+  });
+
+  
+  const obs=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('visible'); obs.unobserve(e.target); } });
+  },{threshold:.1});
+  document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+
+  
+  document.querySelectorAll('a[href^="#"]').forEach(a=>{
+    a.addEventListener('click',e=>{
+      const t=document.querySelector(a.getAttribute('href'));
+      if(t){ e.preventDefault(); window.scrollTo({top:t.offsetTop-80,behavior:'smooth'}); }
+    });
+  });
+
+  
+  document.addEventListener('click',e=>{
+    const rip=document.createElement('div');
+    rip.style.cssText=`position:fixed;left:${e.clientX}px;top:${e.clientY}px;width:4px;height:4px;
+      background:var(--orange);border-radius:50%;transform:translate(-50%,-50%);
+      pointer-events:none;z-index:9997;animation:ripple .5s ease-out forwards`;
+    document.body.appendChild(rip);
+    setTimeout(()=>rip.remove(),500);
+  });
+  const s=document.createElement('style');
+  s.textContent='@keyframes ripple{to{width:60px;height:60px;opacity:0}}';
+  document.head.appendChild(s);
+</script>
+</body>
+</html>
